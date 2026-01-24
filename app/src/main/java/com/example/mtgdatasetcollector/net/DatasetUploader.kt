@@ -7,8 +7,9 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONObject
 import java.io.File
-import java.util.concurrent.TimeUnit
+import java.time.Instant
 
 data class UploadResult(
     val ok: Boolean,
@@ -16,14 +17,9 @@ data class UploadResult(
     val error: String? = null
 )
 
-class DatasetUploader {
-
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(60, TimeUnit.SECONDS)
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .build()
-
+class DatasetUploader(
+    private val client: OkHttpClient
+) {
     fun upload(job: UploadJobEntity): UploadResult {
         val front = File(job.frontPath)
         val back = File(job.backPath)
@@ -31,12 +27,18 @@ class DatasetUploader {
         if (!front.exists()) return UploadResult(false, error = "front file missing: ${job.frontPath}")
         if (!back.exists()) return UploadResult(false, error = "back file missing: ${job.backPath}")
 
+        val metaJson = JSONObject()
+            .put("device", AppConfig.DEVICE_NAME)
+            .put("seq", job.id)
+            .put("grade", job.grade)
+            .put("ts", Instant.now().toString())
+            .toString()
+
         val jpeg = "image/jpeg".toMediaType()
 
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("job_id", job.id.toString())
-            .addFormDataPart("grade", job.grade)
+            .addFormDataPart("meta", metaJson)
             .addFormDataPart("front", front.name, front.asRequestBody(jpeg))
             .addFormDataPart("back", back.name, back.asRequestBody(jpeg))
             .build()
@@ -52,8 +54,7 @@ class DatasetUploader {
 
         client.newCall(reqBuilder.build()).execute().use { resp ->
             if (resp.isSuccessful) return UploadResult(true, code = resp.code)
-
-            val msg = resp.body?.string()?.take(400) ?: ""
+            val msg = resp.body?.string()?.take(800) ?: ""
             return UploadResult(false, code = resp.code, error = "HTTP ${resp.code} $msg")
         }
     }

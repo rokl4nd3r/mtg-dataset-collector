@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.example.mtgdatasetcollector.data.buildPinnedClient
 import com.example.mtgdatasetcollector.data.queue.AppDatabase
 import com.example.mtgdatasetcollector.data.queue.UploadJobEntity
 import com.example.mtgdatasetcollector.data.queue.UploadQueueRepository
@@ -22,7 +23,7 @@ class UploadWorker(
         try {
             val dao = AppDatabase.get(applicationContext).uploadJobDao()
             val repo = UploadQueueRepository(dao)
-            val uploader = DatasetUploader()
+            val uploader = DatasetUploader(buildPinnedClient())
 
             // Process a batch to avoid running forever.
             val batchLimit = 20
