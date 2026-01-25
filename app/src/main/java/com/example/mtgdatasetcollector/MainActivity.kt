@@ -42,6 +42,7 @@ import kotlinx.coroutines.launch
 sealed class Screen {
     data object Capture : Screen()
     data object Label : Screen()
+    data object NextCard : Screen() // <- NOVO: tela de "Identificação OK"
 }
 
 data class CaptureSession(
@@ -129,13 +130,34 @@ private fun CollectorApp() {
                 onLabeled = { grade ->
                     val front = session.frontPath
                     val back = session.backPath
+
+                    // Vai pra tela de "OK" imediatamente (evita cair na câmera e capturar o verso que ficou lá).
+                    // O enqueue roda em background.
+                    screen = Screen.NextCard
+                    session = CaptureSession()
+
                     if (front != null && back != null) {
                         scope.launch(Dispatchers.IO) {
-                            repo.enqueue(grade, front, back)
-                            WorkScheduler.kick(appCtx)
+                            runCatching {
+                                repo.enqueue(grade, front, back)
+                                WorkScheduler.kick(appCtx)
+                            }
                         }
                     }
-                    session = CaptureSession()
+                }
+            )
+        }
+
+        Screen.NextCard -> Scaffold(
+            topBar = { TopAppBar(title = { Text("Próxima carta") }) }
+        ) { padding ->
+            NextCardScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                onOk = {
+                    // Ao voltar pra câmera, ela já entra em modo seguro aguardando fundo limpo
+                    // (feito no AutoShootCaptureScreen/engine).
                     screen = Screen.Capture
                 }
             )
@@ -160,12 +182,42 @@ private fun PermissionGate(
 }
 
 @Composable
+private fun NextCardScreen(
+    modifier: Modifier = Modifier,
+    onOk: () -> Unit
+) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "Identificação OK ✅",
+            style = MaterialTheme.typography.titleLarge
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Remova a carta do papel e coloque a próxima.\nQuando estiver pronto, aperte OK.",
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onOk,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(14.dp)
+        ) { Text("OK") }
+    }
+}
+
+@Composable
 private fun LabelScreen(
     modifier: Modifier = Modifier,
     session: CaptureSession,
     onCancel: () -> Unit,
     onLabeled: (grade: String) -> Unit
 ) {
+    var locked by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -181,18 +233,33 @@ private fun LabelScreen(
 
         Text("Selecione o estado:", style = MaterialTheme.typography.bodyLarge)
 
-        val grades = listOf("NM", "SP", "MP", "HP", "D")
-        grades.forEach { g ->
+        // UI label -> valor real (mantém "D" internamente)
+        val grades = listOf(
+            "NM" to "NM",
+            "SP" to "SP",
+            "MP" to "MP",
+            "HP" to "HP",
+            "DAMAGED" to "D"
+        )
+
+        grades.forEach { (label, value) ->
             Button(
-                onClick = { onLabeled(g) },
+                onClick = {
+                    if (locked) return@Button
+                    locked = true
+                    onLabeled(value)
+                },
+                enabled = !locked,
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(14.dp)
-            ) { Text(g) }
+            ) { Text(label) }
+
             Spacer(Modifier.height(8.dp))
         }
 
         OutlinedButton(
-            onClick = onCancel,
+            onClick = { if (!locked) onCancel() },
+            enabled = !locked,
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(14.dp)
         ) { Text("Cancelar") }

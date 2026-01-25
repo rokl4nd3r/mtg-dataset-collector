@@ -27,6 +27,9 @@ class CaptureRuntime {
     val analyzing = AtomicBoolean(false)
     val awaitingSwap = AtomicBoolean(false)
 
+    // ---- NOVO: calibração do "fundo de referência" (papel + tripé, sem carta)
+    val calibratingBg = AtomicBoolean(false)
+
     @Volatile var step: CaptureStep = CaptureStep.FRONT
     @Volatile var stableFrames: Int = 0
     @Volatile var presentFrames: Int = 0
@@ -35,12 +38,25 @@ class CaptureRuntime {
     @Volatile var lastUiAt: Long = 0L
     @Volatile var lastFocusAt: Long = 0L
 
+    // baseline antigo (mantemos; ajuda em debug)
     @Volatile var baseEdge: Double = 0.0
     @Volatile var baseStd: Double = 0.0
     @Volatile var baseRange: Double = 0.0
     @Volatile var baseCount: Int = 0
 
+    // frame anterior (motion)
     var lastSmall: ByteArray? = null
+
+    // ---- NOVO: background de referência (downsample) e metadados
+    @Volatile var bgSmall: ByteArray? = null
+    @Volatile var bgReady: Boolean = false
+    @Volatile var bgBuiltAtMs: Long = 0L
+
+    fun clearBg() {
+        bgSmall = null
+        bgReady = false
+        bgBuiltAtMs = 0L
+    }
 }
 
 fun frameMetricsWide(image: ImageProxy, step: Int = 16): FrameMetrics {
@@ -196,3 +212,20 @@ fun motionScore(a: ByteArray, b: ByteArray): Double {
 }
 
 fun fmt(v: Double): String = String.format(Locale.US, "%.3f", v)
+
+/**
+ * Detecta obstrução severa (ex: dedo/lente coberta).
+ * Thresholds conservadores para não confundir com "baixa luz".
+ */
+fun isLikelyObstructed(m: FrameMetrics): Boolean {
+    val veryDarkAndFlat =
+        (m.mean <= 55.0 && m.darkFrac >= 0.60 && m.edgeFrac <= 0.012 && m.std <= 18.0)
+
+    val capLikeFlat =
+        (m.range <= 22 && m.std <= 7.5 && m.edgeFrac <= 0.006)
+
+    val partialCover =
+        (m.mean <= 75.0 && m.darkFrac >= 0.45 && m.edgeFrac <= 0.014 && m.std <= 16.0 && m.range <= 55)
+
+    return veryDarkAndFlat || capLikeFlat || partialCover
+}

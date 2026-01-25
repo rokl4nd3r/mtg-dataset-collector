@@ -45,7 +45,7 @@ fun AutoShootCaptureScreen(
     val rt = remember { CaptureRuntime() }
 
     var stepUi by remember { mutableStateOf(CaptureStep.FRONT) }
-    var hintUi by remember { mutableStateOf("Aponte para a FRENTE") }
+    var hintUi by remember { mutableStateOf("Calibrando fundo... mantenha SEM carta por 1 segundo") }
     var dbg1 by remember { mutableStateOf("") }
     var dbg2 by remember { mutableStateOf("") }
 
@@ -84,12 +84,17 @@ fun AutoShootCaptureScreen(
         }
     }
 
-    fun resetAll(toast: Boolean = false) {
+    fun resetSessionFiles() {
         try { frontFile?.delete() } catch (_: Throwable) {}
         try { backFile?.delete() } catch (_: Throwable) {}
         frontFile = null
         backFile = null
+    }
 
+    fun resetAll(toast: Boolean = false) {
+        resetSessionFiles()
+
+        // volta o runtime para o padrão e força recalibração do fundo
         rt.step = CaptureStep.FRONT
         rt.stableFrames = 0
         rt.presentFrames = 0
@@ -99,14 +104,18 @@ fun AutoShootCaptureScreen(
         rt.analyzing.set(false)
         rt.awaitingSwap.set(false)
 
+        rt.clearBg()
+        rt.calibratingBg.set(true)
+
         postUi {
             stepUi = CaptureStep.FRONT
-            hintUi = "Aponte para a FRENTE"
+            hintUi = "Calibrando fundo... mantenha SEM carta por 1 segundo"
         }
 
         if (toast) Toast.makeText(ctx, "Carta cancelada.", Toast.LENGTH_SHORT).show()
     }
 
+    // engine precisa existir antes do Scaffold (pra usar no botão Recalibrar)
     val engine = remember {
         CaptureEngine(
             rt = rt,
@@ -147,7 +156,7 @@ fun AutoShootCaptureScreen(
                                 beepFront()
 
                                 rt.step = CaptureStep.BACK
-                                rt.awaitingSwap.set(true)
+                                rt.awaitingSwap.set(true) // agora swap é "voltar ao fundo", não "frame branco"
                                 rt.absentFrames = 0
                                 rt.presentFrames = 0
                                 rt.stableFrames = 0
@@ -155,7 +164,7 @@ fun AutoShootCaptureScreen(
 
                                 postUi {
                                     stepUi = CaptureStep.BACK
-                                    hintUi = "Tire a carta do papel (sumir) para liberar o VERSO"
+                                    hintUi = "Remova a carta (voltar ao fundo) para liberar o VERSO"
                                 }
                             } else {
                                 try { backFile?.delete() } catch (_: Throwable) {}
@@ -172,18 +181,7 @@ fun AutoShootCaptureScreen(
 
                                 beepBack()
 
-                                rt.step = CaptureStep.FRONT
-                                rt.awaitingSwap.set(true)
-                                rt.absentFrames = 0
-                                rt.presentFrames = 0
-                                rt.stableFrames = 0
-                                rt.lastSmall = null
-
-                                postUi {
-                                    stepUi = CaptureStep.FRONT
-                                    hintUi = "Remova a carta e coloque a próxima (precisa sumir)"
-                                }
-
+                                // vai para Label. Ao voltar para Capture, a tela vai calibrar o fundo de novo.
                                 onCapturedBoth(f.absolutePath, b.absolutePath)
                             }
                         },
@@ -192,13 +190,14 @@ fun AutoShootCaptureScreen(
                             beepError()
                             Toast.makeText(ctx, "Erro ao capturar: ${err.message}", Toast.LENGTH_SHORT).show()
 
-                            rt.awaitingSwap.set(true)
-                            rt.absentFrames = 0
-                            rt.presentFrames = 0
+                            // volta para estado seguro
+                            rt.awaitingSwap.set(false)
                             rt.stableFrames = 0
+                            rt.presentFrames = 0
+                            rt.absentFrames = 0
                             rt.lastSmall = null
 
-                            postUi { hintUi = "Erro. Tire a carta do papel e tente de novo." }
+                            postUi { hintUi = "Erro. Recalibre o fundo e tente de novo." }
                         }
                     )
                 }
@@ -215,8 +214,26 @@ fun AutoShootCaptureScreen(
             TopAppBar(
                 title = { Text("Captura automática") },
                 actions = {
-                    TextButton(onClick = { resetAll(toast = true) }) { Text("Cancelar carta") }
-                    TextButton(onClick = { resetAll(); onExit() }) { Text("Sair") }
+                    TextButton(
+                        onClick = {
+                            // Recalibra o fundo sem apagar arquivos já capturados (útil se mexeu no tripé).
+                            engine.requestRecalibrate()
+                            postUi { stepUi = CaptureStep.FRONT }
+                        }
+                    ) { Text("Recalibrar") }
+
+                    TextButton(
+                        onClick = {
+                            resetAll(toast = true)
+                        }
+                    ) { Text("Cancelar carta") }
+
+                    TextButton(
+                        onClick = {
+                            resetAll()
+                            onExit()
+                        }
+                    ) { Text("Sair") }
                 }
             )
         }
@@ -246,7 +263,7 @@ fun AutoShootCaptureScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(Modifier.height(6.dp))
-                Text("Dica: papel claro e boa luz ajudam. O foco é acionado automaticamente.")
+                Text("Dica: calibre o fundo sem carta. Depois, basta trocar frente/verso e rotular.")
             }
         }
     }
@@ -266,11 +283,11 @@ fun AutoShootCaptureScreen(
 
             requestFocusNow()
 
-            rt.step = CaptureStep.FRONT
-            rt.awaitingSwap.set(false)
+            // Sempre que entrar na tela, recalibra o fundo.
+            engine.requestRecalibrate()
             postUi {
                 stepUi = CaptureStep.FRONT
-                hintUi = "Aponte para a FRENTE"
+                hintUi = "Calibrando fundo... mantenha SEM carta por 1 segundo"
             }
 
             if (AppConfig.DBG) Log.i(AppConfig.DBG_TAG, "CAMERA_BOUND_OK")
@@ -285,7 +302,6 @@ fun AutoShootCaptureScreen(
             runCatching { boundRef.value?.provider?.unbindAll() }
             runCatching { cameraExecutor.shutdown() }
             runCatching { tone.release() }
-            // NÃO apagar aqui. As imagens precisam sobreviver até Label/Room/Worker.
             runCatching { engine.close() }
         }
     }
