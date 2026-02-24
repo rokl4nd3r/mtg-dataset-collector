@@ -25,7 +25,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,12 +43,13 @@ import com.example.mtgdatasetcollector.ui.screens.AutoShootCaptureScreen
 import com.example.mtgdatasetcollector.ui.theme.MTGDatasetCollectorTheme
 import com.example.mtgdatasetcollector.work.WorkScheduler
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 sealed class Screen {
     data object Capture : Screen()
     data object Label : Screen()
-    data object NextCard : Screen() // <- NOVO: tela de "Identificação OK"
+    data object NextCard : Screen() // tela de "Identificação OK"
 }
 
 data class CaptureSession(
@@ -155,9 +162,9 @@ private fun CollectorApp() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                onOk = {
-                    // Ao voltar pra câmera, ela já entra em modo seguro aguardando fundo limpo
-                    // (feito no AutoShootCaptureScreen/engine).
+                autoMs = 1000L,
+                onAutoDone = {
+                    // Volta pra câmera automaticamente
                     screen = Screen.Capture
                 }
             )
@@ -184,8 +191,15 @@ private fun PermissionGate(
 @Composable
 private fun NextCardScreen(
     modifier: Modifier = Modifier,
-    onOk: () -> Unit
+    autoMs: Long = 1000L,
+    onAutoDone: () -> Unit
 ) {
+    // Auto-fecha e rearma
+    LaunchedEffect(Unit) {
+        delay(autoMs)
+        onAutoDone()
+    }
+
     Column(
         modifier = modifier.padding(16.dp),
         verticalArrangement = Arrangement.Center,
@@ -197,15 +211,10 @@ private fun NextCardScreen(
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "Remova a carta do papel e coloque a próxima.\nQuando estiver pronto, aperte OK.",
+            "Remova a carta do papel e coloque a próxima.\nRearmando automaticamente…",
             style = MaterialTheme.typography.bodyLarge
         )
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = onOk,
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(14.dp)
-        ) { Text("OK") }
+        // Sem botão OK
     }
 }
 

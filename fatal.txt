@@ -1,0 +1,297 @@
+﻿
+02-21 22:38:45.379  1239  1239 I SurfaceFlinger: 
+[com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity$_15746#4458] setFrameRateCategory: 
+HighHint
+02-21 22:38:45.600  1522  1522 I CameraService: CameraService::connect call (PID 15746 UID 10337 
+"com.example.mtgdatasetcollector", camera ID 0) and Camera API version 2
+02-21 22:38:45.601  1522  1522 I CameraService: isUidActiveLocked E: uid 10337, callingPackage 
+com.example.mtgdatasetcollector, isRegistered true
+02-21 22:38:45.601  1522  1522 I CameraService: isUidActiveLocked X: uid 10337, callingPackage 
+com.example.mtgdatasetcollector, isActive true.
+02-21 22:38:45.601  1522  1522 I CameraService: CameraService::validateClientPermissionsLocked is ok : calling pid 
+15746, calling uid 10337, client com.example.mtgdatasetcollector , cameraservice pid=1522, device user 0, currently 
+allowed device users: 0, 150
+02-21 22:38:45.602  1522  1522 I Camera2ClientBase: Camera 0: Opened. Client: com.example.mtgdatasetcollector (PID 
+15746, UID 10337)
+02-21 22:38:45.603  1522  1522 I CameraService: service.camera.client set to com.example.mtgdatasetcollector
+02-21 22:38:45.604  2606 22073 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now 
+CAMERA_STATE_OPENING for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.604  1465  5316 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now 
+CAMERA_STATE_OPENING for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.604  2898  2948 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now 
+CAMERA_STATE_OPENING for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.604  5183 21913 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now 
+CAMERA_STATE_OPENING for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.605 32604  3230 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now 
+CAMERA_STATE_OPENING for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.605 15746 15758 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now 
+CAMERA_STATE_OPENING for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.609 15843 15890 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now 
+CAMERA_STATE_OPENING for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.614  2606  2740 D CollapsedStatusBarFragmentExt: onCameraOpened(cId:0, 
+pId:com.example.mtgdatasetcollector)    shouldHideIconsForNextAppWindow:false, lastFullscreen(pkg:, flag:false),    
+keyguard(fa:false, ga:false, oc:false, show:false)
+02-21 22:38:45.625  1160  1890 I Unihal  : UniHal3InterfaceEntry.cpp: uni_set_parameters: 432: set_parameters : 
+pkgName=com.example.mtgdatasetcollector;
+02-21 22:38:45.625  1522  1522 I CameraServiceProxyWrapper: updateProxyDeviceState: notifyCameraState for Camera ID 0, 
+newState 0, facing 0, clientName com.example.mtgdatasetcollector, apiLevel 2
+02-21 22:38:45.626  1465  5316 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_OPEN 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.626  2606  2644 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_OPEN 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.626 32604  5009 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_OPEN 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.626 15843 15890 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_OPEN 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.626 15746 15758 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_OPEN 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.626  2898  2032 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_OPEN 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.627  5183  5258 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_OPEN 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.726  1522 16476 I CameraService: startCameraStreamingOps: Start camera streaming ops, package name = 
+com.example.mtgdatasetcollector, client UID = 10337
+02-21 22:38:45.728  1465  1812 D SensorPrivacyService: onOpNoted  com.example.mtgdatasetcollector  code=26  uid=10337
+02-21 22:38:45.728  1522 16476 I CameraServiceProxyWrapper: updateProxyDeviceState: notifyCameraState for Camera ID 0, 
+newState 1, facing 0, clientName com.example.mtgdatasetcollector, apiLevel 2
+02-21 22:38:45.728  1465  3938 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_ACTIVE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.728  1062  1258 I AiPrivacy::SaSensorRepository: Active op +  op : android:camera uid : 10337 
+PackageName : com.example.mtgdatasetcollector Active : true
+02-21 22:38:45.728  5183  5258 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_ACTIVE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.728 32604  5009 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_ACTIVE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.728  2898  2032 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_ACTIVE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.728 15843 15890 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_ACTIVE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.728 15746 15759 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_ACTIVE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.728  2606  2813 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_ACTIVE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:38:45.728  1465  5244 I CameraService_proxy: wmi.addRefreshRateRangeForPackage minFPS = 30.000002, maxFPS = 
+60.0, clientName = com.example.mtgdatasetcollector
+02-21 22:38:45.730  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:45.734  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:45.737  1239  1239 I LayerHistory: 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity$_15746#4458 voted ExplicitCategory with 
+category: HighHint
+02-21 22:38:45.747  1465  1790 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:46.243  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:46.246  1465  5244 D InsetsSourceProvider: updateFakeControlTarget: fakeControl=InsetsSourceControl: 
+{de90000 mType=statusBars mSurfacePosition=Point(0, 0) mInsetsHint=Insets{left=0, top=0, right=0, bottom=0}}, 
+fakeTarget=Window{b6060eb u0 com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity}
+02-21 22:38:46.246  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:46.280  1465  1792 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.279  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.279  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.289  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.290  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.297  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.298  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.300  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.308  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.309  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.320  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.321  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.324  1239  1239 D SurfaceFlinger:        DEVICE |           67628555042821 | 00002102 | RGBA_8888    |  
+  0.0    0.0 1080.0 2400.0 |    0    0 1080 2400 | 
+com.example.mtgdatasetcollector/com.[...]etcollector.MainActivity$_15746#4458 (747)
+02-21 22:38:48.324  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.325  1465  5244 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.326  1465  3938 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.326  1465  3938 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.333  1465  3938 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.333  1465  3938 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.337  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.338  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.358  1239  1239 D SurfaceFlinger:        DEVICE |           67628555042820 | 00002102 | RGBA_8888    |  
+  0.0    0.0 1080.0 2400.0 |    0    0 1080 2400 | 
+com.example.mtgdatasetcollector/com.[...]etcollector.MainActivity$_15746#4458 (748)
+02-21 22:38:48.472  1522  1522 I Camera2ClientBase: ~Camera2ClientBase: Client object's dtor for Camera Id 0 
+completed. Client was: com.example.mtgdatasetcollector (PID 15746, UID 10337)
+02-21 22:38:48.481  1239  1239 I SurfaceFlinger: 
+[com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity$_15746#4458] setFrameRateCategory: 
+NoPreference
+02-21 22:38:48.765  1465  5316 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.768  1465  5316 D InsetsSourceProvider: updateControlForTarget: control=InsetsSourceControl: {de90000 
+mType=statusBars initiallyVisible mSurfacePosition=Point(0, 0) mInsetsHint=Insets{left=0, top=98, right=0, bottom=0}}, 
+target=Window{b6060eb u0 com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity}, 
+from=com.android.server.wm.InsetsStateController.onControlTargetChanged:83 
+com.android.server.wm.InsetsPolicy.updateBarControlTarget:212 
+com.android.server.wm.DisplayPolicy.updateSystemBarAttributes:262 
+com.android.server.wm.DisplayPolicy.finishPostLayoutPolicyLw:17 
+com.android.server.wm.RootWindowContainer.applySurfaceChangesTransaction$1:195 
+02-21 22:38:48.768  1465  5316 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:48.799 15746 15746 I InsetsSourceConsumer: applyRequestedVisibilityToControl: visible=true, 
+type=statusBars, host=com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity
+02-21 22:38:49.133  1210 16885 I UsecaseValidator: verifyAudioAttributes update usage: 1 to AUDIO_USAGE_GAME for 
+output: 29 pid: 15746 package: com.example.mtgdatasetcollector
+02-21 22:38:58.855  1239  1239 I SurfaceFlinger: 
+[com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity$_15746#4458] setFrameRateCategory: 
+HighHint
+02-21 22:38:58.960 15746 15746 I Toast   : show: caller = 
+com.example.mtgdatasetcollector.ui.screens.AutoShootCaptureScreenKt.AutoShootCaptureScreen$resetAll:115 
+02-21 22:38:58.971  2606  2606 I AppIconSolution: return adaptive icon for com.example.mtgdatasetcollector, isNight = 
+true
+02-21 22:38:58.999  1465  5296 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:59.000  1465  5296 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:59.014  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:59.016  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:59.062  1239  1239 D SurfaceFlinger:        DEVICE |           67628555042822 | 00002102 | RGBA_8888    |  
+  0.0    0.0 1080.0 2400.0 |    0    0 1080 2400 | 
+com.example.mtgdatasetcollector/com.[...]etcollector.MainActivity$_15746#4458 (998)
+02-21 22:38:59.538  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:38:59.554  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:01.315  1465  5286 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:01.316  1465  5286 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:01.318  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:01.319  1465  5286 W NotificationService: Toast already killed. pkg=com.example.mtgdatasetcollector 
+token=android.os.BinderProxy@b965cdd
+02-21 22:39:01.859  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:01.860  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:01.865  1239  1239 D SurfaceFlinger:        DEVICE |           67628555042822 | 00002102 | RGBA_8888    |  
+  0.0    0.0 1080.0 2400.0 |    0    0 1080 2400 | 
+com.example.mtgdatasetcollector/com.[...]etcollector.MainActivity$_15746#4458 (1078)
+02-21 22:39:01.872  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:02.470  1239  1239 I SurfaceFlinger: 
+[com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity$_15746#4458] setFrameRateCategory: 
+NoPreference
+02-21 22:39:02.987  1465  1792 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:02.988  1465  1792 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:03.721  1210 16885 I UsecaseValidator: verifyAudioAttributes update usage: 1 to AUDIO_USAGE_GAME for 
+output: 29 pid: 15746 package: com.example.mtgdatasetcollector
+02-21 22:39:08.485  1210 16885 I UsecaseValidator: verifyAudioAttributes update usage: 1 to AUDIO_USAGE_GAME for 
+output: 29 pid: 15746 package: com.example.mtgdatasetcollector
+02-21 22:39:08.577  1522 16476 I CameraService: finishCameraStreamingOps: finish camera streaming ops, package name = 
+com.example.mtgdatasetcollector, client UID = 10337
+02-21 22:39:08.577  1522 16476 I CameraServiceProxyWrapper: updateProxyDeviceState: notifyCameraState for Camera ID 0, 
+newState 2, facing 0, clientName com.example.mtgdatasetcollector, apiLevel 2
+02-21 22:39:08.577  1062  1258 I AiPrivacy::SaSensorRepository: Active op +  op : android:camera uid : 10337 
+PackageName : com.example.mtgdatasetcollector Active : false
+02-21 22:39:08.577  1465  5296 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_IDLE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.578  2898  2032 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_IDLE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.578  5183  5258 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_IDLE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.578 15843 15890 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_IDLE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.578 32604  1559 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_IDLE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.578  2606  2813 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_IDLE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.579 15746 16001 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_IDLE 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.580  1465  5286 I CameraService_proxy: wmi.removeRefreshRateRangeForPackage clientName = 
+com.example.mtgdatasetcollector
+02-21 22:39:08.580  1062  1258 I AiPrivacy::SaSensorRepository: com.example.mtgdatasetcollector 26 22849
+02-21 22:39:08.581  1465  1793 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:08.584  1465  5286 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:08.585  1465  5286 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:08.590  1465  5286 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:08.590  1465  5286 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:08.609  1239  1239 I LayerHistory: 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity$_15746#4458 voted NoVote (0.00 Hz)
+02-21 22:39:08.620  1239  1239 D SurfaceFlinger:        DEVICE |           67628555042823 | 00002102 | RGBA_8888    |  
+  0.0    0.0 1080.0 2400.0 |    0    0 1080 2400 | 
+com.example.mtgdatasetcollector/com.[...]etcollector.MainActivity$_15746#4458 (1245)
+02-21 22:39:08.628  1465  1790 D SurfaceComposerClient: setCornerRadius ## b6060eb 
+com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity#4439 cornerRadius=0.000000
+02-21 22:39:08.732  1522  2690 I CameraServiceProxyWrapper: updateProxyDeviceState: notifyCameraState for Camera ID 0, 
+newState 3, facing 0, clientName com.example.mtgdatasetcollector, apiLevel 2
+02-21 22:39:08.733  1522  2690 I CameraService: notifyCameraClosing: Finish camera ops, package name = 
+com.example.mtgdatasetcollector, client UID = 10337
+02-21 22:39:08.735  1465  5316 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_CLOSED 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.735 15843 15891 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_CLOSED 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.735  2898  2032 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_CLOSED 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.735  2606  2813 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_CLOSED 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.736 32604  1559 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_CLOSED 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.736  5183  5258 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_CLOSED 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:08.737 15746 16001 I CameraManagerGlobal: Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_CLOSED 
+for client com.example.mtgdatasetcollector API Level 2 User Id 0Device Id 0
+02-21 22:39:10.072  1239  1239 I SurfaceFlinger: 
+[com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity$_15746#4458] setFrameRateCategory: 
+HighHint
+02-21 22:39:10.180  1465  5302 D ConnectivityService: requestNetwork for uid/pid:10337/15746 activeRequest: null 
+callbackRequest: 4721 [NetworkRequest [ REQUEST id=4722, [ Capabilities: 
+INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10337 RequestorUid: 10337 RequestorPkg: 
+com.example.mtgdatasetcollector UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647 isUidTracked: false 
+declaredMethods: AVAIL|LOST|NC
+02-21 22:39:10.181  1465  2387 D ConnectivityService:    accepting network in place of null for NetworkRequest [ 
+REQUEST id=4722, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10337 
+RequestorUid: 10337 RequestorPkg: com.example.mtgdatasetcollector UnderlyingNetworks: Null] ]
+02-21 22:39:10.184  1465  2376 D WifiNetworkFactory: got request NetworkRequest [ REQUEST id=4722, [ Capabilities: 
+INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10337 RequestorUid: 10337 RequestorPkg: 
+com.example.mtgdatasetcollector UnderlyingNetworks: Null] ]
+02-21 22:39:10.185  1465  2376 D UntrustedWifiNetworkFactory: got request NetworkRequest [ REQUEST id=4722, [ 
+Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10337 RequestorUid: 10337 
+RequestorPkg: com.example.mtgdatasetcollector UnderlyingNetworks: Null] ]
+02-21 22:39:10.185  1465  2376 D OemPaidWifiNetworkFactory: got request NetworkRequest [ REQUEST id=4722, [ 
+Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10337 RequestorUid: 10337 
+RequestorPkg: com.example.mtgdatasetcollector UnderlyingNetworks: Null] ]
+02-21 22:39:10.185  1465  2376 D MultiInternetWifiNetworkFactory: got request NetworkRequest [ REQUEST id=4722, [ 
+Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10337 RequestorUid: 10337 
+RequestorPkg: com.example.mtgdatasetcollector UnderlyingNetworks: Null] ]
+02-21 22:39:10.231  1465  2529 D NetdEventListenerService: DNS Requested by 102, 
+10337(com.example.mtgdatasetcollector), SUCCESS, 1ms
+02-21 22:39:11.055 15746 15763 I WM-WorkerWrapper: Worker result SUCCESS for Work [ 
+id=03b1ed5b-7079-4de0-9784-5b65bc71abec, tags={ com.example.mtgdatasetcollector.work.UploadWorker, upload_flush } ]
+02-21 22:39:13.170  1239  1239 I SurfaceFlinger: 
+[com.example.mtgdatasetcollector/com.example.mtgdatasetcollector.MainActivity$_15746#4458] setFrameRateCategory: 
+NoPreference
+
+

@@ -5,6 +5,7 @@ import androidx.camera.core.ImageProxy
 import com.example.mtgdatasetcollector.OcrGate
 import com.example.mtgdatasetcollector.model.CaptureStep
 import kotlin.math.max
+import kotlin.math.min
 
 class CaptureEngine(
     private val rt: CaptureRuntime,
@@ -16,7 +17,15 @@ class CaptureEngine(
         val stepDownsample: Int = 16,
 
         val needPresentFrames: Int = 5,
-        val needStable: Int = 5,
+
+        // estabilidade por tempo (em ms)
+        val needStableMs: Long = 800,
+
+        // mantém um mínimo de frames pra não disparar por 1 frame “bonito”
+        val needStableFrames: Int = 3,
+
+        // >>> NOVO: depois de pedir foco, aguarda pelo menos isso antes de capturar
+        val focusSettleMs: Long = 600,
 
         val needBgMatchFrames: Int = 6,
         val needBgMatchMs: Long = 420,
@@ -31,24 +40,14 @@ class CaptureEngine(
         val hintEveryMs: Long = 450,
 
         // ---- Background calibration
-        val bgCalibNeedFrames: Int = 12,
+        val bgCalibNeedFrames: Int = 30,
         val bgCalibMotionThr: Double = 7.5,
-        val bgDiffPresentThr: Double = 12.0,
-        val bgDiffAbsentThr: Double = 9.0,
+        val bgDiffPresentThr: Double = 20.0,
+        val bgDiffAbsentThr: Double = 17.0,
 
-        // ---- OCR gate (TRAVA de captura)
+        // ---- OCR usado SOMENTE para calibração do fundo (pra não calibrar com carta)
         val ocrPeriodMs: Long = 260,
         val ocrStaleMs: Long = 1200,
-        val ocrMinChars: Int = 6,
-        val ocrMinLines: Int = 1,
-
-        val ocrMotionFactor: Double = 2.0,
-        val ocrSharpFactorFront: Double = 0.55,
-        val ocrSharpFactorBack: Double = 0.35,
-
-        val ocrUseMaxAgeMs: Long = 450,
-
-        // ---- NOVO: OCR mais “forte” para decidir se existe CARTA durante calibração
         val calibOcrMaxAgeMs: Long = 700,
         val calibOcrMinChars: Int = 12
     )
@@ -64,8 +63,8 @@ class CaptureEngine(
     private val ocrGate = OcrGate(
         periodMs = cfg.ocrPeriodMs,
         staleMs = cfg.ocrStaleMs,
-        minChars = cfg.ocrMinChars,
-        minLines = cfg.ocrMinLines
+        minChars = 6,
+        minLines = 1
     )
 
     private var bgAcc: IntArray? = null
@@ -75,6 +74,9 @@ class CaptureEngine(
     private var lastHintAtMs: Long = 0L
 
     private var bgCardPresent: Boolean = false
+
+    // desde quando está estável (ms)
+    private var stableSinceMs: Long = 0L
 
     fun close() = ocrGate.close()
 
@@ -88,6 +90,7 @@ class CaptureEngine(
         rt.absentFrames = 0
         rt.presentFrames = 0
         rt.stableFrames = 0
+        stableSinceMs = 0L
         rt.lastSmall = null
         bgCardPresent = false
         listener.onHint("Recalibrando fundo... mantenha SEM carta por 1 segundo")
@@ -104,9 +107,11 @@ class CaptureEngine(
             rt.lastSmall = m.small
             val motion = if (prev == null) 999.0 else motionScore(prev, m.small)
 
+            // “mão na lente / obstrução global” continua útil
             if (isLikelyObstructed(m)) {
                 rt.presentFrames = 0
                 rt.stableFrames = 0
+                stableSinceMs = 0L
                 rt.absentFrames = 0
                 bgMatchSinceMs = 0L
 
@@ -119,28 +124,21 @@ class CaptureEngine(
                     rt.lastUiAt = now
                     listener.onDebug(
                         "step=${rt.step} obstructed=true bgReady=${rt.bgReady} calibrating=${rt.calibratingBg.get()} awaitSwap=${rt.awaitingSwap.get()}",
-                        "mean=${fmt(m.mean)} std=${fmt(m.std)} range=${m.range} min=${m.minVal} max=${m.maxVal} edge=${fmt(m.edgeFrac)} sharp=${fmt(m.sharp)} mot=${fmt(motion)}"
+                        "sharp=${fmt(m.sharp)} mot=${fmt(motion)} mean=${fmt(m.mean)} std=${fmt(m.std)} range=${m.range}"
                     )
                 }
                 return
             }
 
-            // baseline antigo (debug)
-            if (motion < cfg.motionStableThr) {
-                updateBlankBaselineIfCandidate(m, rt)
-            }
-
             // ------------------------------------------------------------
-            // CALIBRAÇÃO DO FUNDO: NÃO usa heurística visual (tripé engana).
-            // Decide “tem carta” somente por OCR (nome).
+            // CALIBRAÇÃO DO FUNDO (não calibrar com carta)
             // ------------------------------------------------------------
             if (!rt.bgReady || rt.calibratingBg.get()) {
                 if (!rt.calibratingBg.get()) rt.calibratingBg.set(true)
 
                 val motionOkForBg = motion < cfg.bgCalibMotionThr
-
-                // Durante calibração, chuta OCR sempre que estiver estável e sharp razoável.
                 val sharpOkForCalibOcr = m.sharp > (cfg.sharpThr * 0.40)
+
                 if (motionOkForBg && sharpOkForCalibOcr) {
                     ocrGate.maybeKick(image, now)
                 }
@@ -181,6 +179,7 @@ class CaptureEngine(
                         rt.step = CaptureStep.FRONT
                         rt.presentFrames = 0
                         rt.stableFrames = 0
+                        stableSinceMs = 0L
                         rt.absentFrames = 0
                         rt.lastSmall = null
                         bgCardPresent = false
@@ -194,40 +193,28 @@ class CaptureEngine(
                         }
                     }
                 } else {
-                    // Se OCR parece carta, não acumula fundo e ainda zera o acumulador para não contaminar.
-                    if (ocrLooksLikeCardName) {
-                        bgAcc = null
-                        bgAccCount = 0
-                        if (now - lastHintAtMs > cfg.hintEveryMs) {
-                            lastHintAtMs = now
-                            listener.onHint("Remova a carta para calibrar o fundo (sem carta por 1 segundo)")
-                        }
-                    } else {
-                        // motion ruim: pede estabilidade
-                        if (now - lastHintAtMs > cfg.hintEveryMs) {
-                            lastHintAtMs = now
-                            listener.onHint("Calibrando fundo... mantenha o celular parado por 1 segundo")
-                        }
+                    if (now - lastHintAtMs > cfg.hintEveryMs) {
+                        lastHintAtMs = now
+                        listener.onHint("Remova a carta para calibrar o fundo (sem carta por 1 segundo)")
                     }
+                    bgAcc = null
+                    bgAccCount = 0
                 }
 
                 if (now - rt.lastUiAt > cfg.uiDebugEveryMs) {
                     rt.lastUiAt = now
                     listener.onDebug(
-                        "CALIB bgCount=$bgAccCount/${cfg.bgCalibNeedFrames} motionOk=${motionOkForBg} bgReady=${rt.bgReady} ocrCard=$ocrLooksLikeCardName",
-                        "mean=${fmt(m.mean)} std=${fmt(m.std)} range=${m.range} min=${m.minVal} max=${m.maxVal} edge=${fmt(m.edgeFrac)} sharp=${fmt(m.sharp)} mot=${fmt(motion)} | ocr(age=${ocrAge}ms chars=$ocrChars lines=$ocrLines)"
+                        "CALIB bgCount=$bgAccCount/${cfg.bgCalibNeedFrames} bgReady=${rt.bgReady} ocrCard=$ocrLooksLikeCardName",
+                        "sharp=${fmt(m.sharp)} mot=${fmt(motion)} ocr(age=${ocrAge}ms chars=$ocrChars lines=$ocrLines)"
                     )
                 }
                 return
             }
 
-            // ---- daqui pra baixo mantém a lógica por diferença do fundo + OCR como trava de captura
-
-            val bg = rt.bgSmall
-            if (bg == null) {
-                requestRecalibrate()
-                return
-            }
+            // ------------------------------------------------------------
+            // RUN: detecta carta por diferença do fundo + estabilidade
+            // ------------------------------------------------------------
+            val bg = rt.bgSmall ?: run { requestRecalibrate(); return }
 
             val bgDiff = motionScore(bg, m.small)
 
@@ -239,19 +226,6 @@ class CaptureEngine(
 
             val motionOk = motion < cfg.motionStableThr
             val sharpOk = m.sharp > cfg.sharpThr
-
-            val motionOkForOcr = motion < (cfg.motionStableThr * cfg.ocrMotionFactor)
-            val sharpFactor = if (rt.step == CaptureStep.BACK) cfg.ocrSharpFactorBack else cfg.ocrSharpFactorFront
-            val sharpOkForOcr = m.sharp > (cfg.sharpThr * sharpFactor)
-
-            if (bgCardPresent && motionOkForOcr && sharpOkForOcr) {
-                ocrGate.maybeKick(image, now)
-            }
-
-            val ocrAge = ocrGate.debugAgeMs(now)
-            val ocrFreshEnough = ocrAge <= cfg.ocrUseMaxAgeMs
-            val ocrOk = if (rt.step == CaptureStep.BACK) ocrGate.deckishFresh(now) else ocrGate.textPresentFresh(now)
-            val ocrOkFresh = ocrOk && ocrFreshEnough
 
             if (rt.awaitingSwap.get()) {
                 val bgMatch = (!bgCardPresent) && (bgDiff <= cfg.bgDiffAbsentThr) && (motion < cfg.motionStableThr * 1.5)
@@ -271,6 +245,7 @@ class CaptureEngine(
                     bgMatchSinceMs = 0L
                     rt.presentFrames = 0
                     rt.stableFrames = 0
+                    stableSinceMs = 0L
                     rt.lastSmall = null
 
                     val hint = if (rt.step == CaptureStep.FRONT) "Aponte para a FRENTE" else "Agora o VERSO"
@@ -281,7 +256,7 @@ class CaptureEngine(
                     rt.lastUiAt = now
                     listener.onDebug(
                         "SWAP step=${rt.step} bgDiff=${fmt(bgDiff)} present=$bgCardPresent absentFrames=${rt.absentFrames}",
-                        "sharp=${fmt(m.sharp)} mot=${fmt(motion)} | ocr(age=${ocrAge}ms okFresh=$ocrOkFresh)"
+                        "sharp=${fmt(m.sharp)} mot=${fmt(motion)}"
                     )
                 }
                 return
@@ -290,38 +265,55 @@ class CaptureEngine(
             rt.presentFrames = if (bgCardPresent) rt.presentFrames + 1 else 0
             if (rt.presentFrames < cfg.needPresentFrames) {
                 rt.stableFrames = 0
+                stableSinceMs = 0L
                 if (now - rt.lastUiAt > cfg.uiDebugEveryMs) {
                     rt.lastUiAt = now
                     listener.onDebug(
                         "WAIT step=${rt.step} bgDiff=${fmt(bgDiff)} present=$bgCardPresent presentFrames=${rt.presentFrames}/${cfg.needPresentFrames}",
-                        "sharp=${fmt(m.sharp)} mot=${fmt(motion)} | ocr(age=${ocrAge}ms okFresh=$ocrOkFresh)"
+                        "sharp=${fmt(m.sharp)} mot=${fmt(motion)}"
                     )
                 }
                 return
             }
 
+            // pede foco quando está “quase lá”, mas sharp ainda não bateu
             if (bgCardPresent && motionOk && m.sharp < cfg.sharpThr * 0.92 && now - rt.lastFocusAt > cfg.focusCooldownMs) {
                 rt.lastFocusAt = now
                 listener.onRequestFocus()
             }
 
-            rt.stableFrames = if (motionOk && sharpOk) rt.stableFrames + 1 else 0
+            val stableNow = bgCardPresent && motionOk && sharpOk
+            if (stableNow) {
+                if (stableSinceMs == 0L) stableSinceMs = now
+                rt.stableFrames++
+            } else {
+                rt.stableFrames = 0
+                stableSinceMs = 0L
+            }
+
+            val stableMs = if (stableSinceMs == 0L) 0L else (now - stableSinceMs)
+
+            // >>> NOVO: bloqueia captura logo após pedir foco
+            val sinceFocusMs = if (rt.lastFocusAt == 0L) 999_999L else (now - rt.lastFocusAt)
+            val focusSettled = (rt.lastFocusAt == 0L) || (sinceFocusMs >= cfg.focusSettleMs)
 
             val shouldTrigger =
-                (rt.stableFrames >= cfg.needStable) &&
-                        bgCardPresent &&
-                        ocrOkFresh
+                bgCardPresent &&
+                        (rt.stableFrames >= cfg.needStableFrames) &&
+                        (stableMs >= cfg.needStableMs) &&
+                        focusSettled
 
             if (now - rt.lastUiAt > cfg.uiDebugEveryMs) {
                 rt.lastUiAt = now
                 listener.onDebug(
-                    "RUN step=${rt.step} bgDiff=${fmt(bgDiff)} present=$bgCardPresent stable=${rt.stableFrames}/${cfg.needStable} ocrOkFresh=$ocrOkFresh",
-                    "sharp=${fmt(m.sharp)} mot=${fmt(motion)} | ocr(age=${ocrAge}ms chars=${ocrGate.debugChars()} lines=${ocrGate.debugLines()} deck=${ocrGate.debugHasDeckish()} norm='${ocrGate.debugTextNorm().take(24)}')"
+                    "RUN step=${rt.step} bgDiff=${fmt(bgDiff)} present=$bgCardPresent stable=${rt.stableFrames}/${cfg.needStableFrames} stableMs=${stableMs}/${cfg.needStableMs} focusMs=${sinceFocusMs}/${cfg.focusSettleMs}",
+                    "sharp=${fmt(m.sharp)} mot=${fmt(motion)}"
                 )
             }
 
             if (shouldTrigger && canTrigger(now)) {
                 rt.stableFrames = 0
+                stableSinceMs = 0L
                 rt.lastCaptureAt = now
                 rt.captureInProgress.set(true)
                 listener.onTriggerCapture(rt.step)
@@ -331,14 +323,6 @@ class CaptureEngine(
         } finally {
             image.close()
         }
-    }
-
-    fun markCaptureFinished() {
-        rt.captureInProgress.set(false)
-    }
-
-    fun setAnalyzing(v: Boolean) {
-        rt.analyzing.set(v)
     }
 
     private fun canTrigger(now: Long): Boolean {
