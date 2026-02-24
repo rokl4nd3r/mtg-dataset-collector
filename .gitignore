@@ -15,3 +15,9 @@
 local.properties
 **/build/
 **/.gradle/
+# adb/logcat dumps
+crashbuf.txt
+errors.txt
+fatal.txt
+focus_timing.txt
+
