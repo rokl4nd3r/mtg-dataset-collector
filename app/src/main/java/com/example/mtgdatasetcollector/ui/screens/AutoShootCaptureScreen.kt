@@ -30,6 +30,7 @@ import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.max
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,13 +69,27 @@ fun AutoShootCaptureScreen(
     fun beepBack() = tone.startTone(ToneGenerator.TONE_PROP_ACK, 120)
     fun beepError() = tone.startTone(ToneGenerator.TONE_PROP_NACK, 120)
 
+    // ROI (overlay + engine)
+    val roi = remember {
+        CaptureEngine.RoiNorm(
+            left = 0.12f,
+            top = 0.18f,
+            right = 0.88f,
+            bottom = 0.82f
+        ).clamped()
+    }
+
     fun requestFocusNow() {
         val cc = cameraControlRef.get() ?: return
         previewView.post {
             try {
                 if (previewView.width <= 0 || previewView.height <= 0) return@post
+
+                val cx = previewView.width * (roi.left + (roi.right - roi.left) * 0.5f)
+                val cy = previewView.height * (roi.top + (roi.bottom - roi.top) * 0.5f)
+
                 val factory = previewView.meteringPointFactory
-                val point = factory.createPoint(previewView.width / 2f, previewView.height / 2f)
+                val point = factory.createPoint(cx, cy)
 
                 val action = FocusMeteringAction.Builder(
                     point,
@@ -102,7 +117,6 @@ fun AutoShootCaptureScreen(
 
         rt.step = CaptureStep.FRONT
         rt.stableFrames = 0
-        // rt.presentFrames = 0
         rt.absentFrames = 0
         rt.lastSmall = null
         rt.captureInProgress.set(false)
@@ -123,6 +137,29 @@ fun AutoShootCaptureScreen(
     val engine = remember {
         CaptureEngine(
             rt = rt,
+            cfg = CaptureEngine.Config(
+                roi = roi,
+
+                // ---------------- AJUSTES ANTI-DEDO ----------------
+                // 1) Mais tempo e mais frames estáveis antes de disparar:
+                needStableMs = 2000,          // <<< AJUSTE AQUI (mais alto = mais lento, mais seguro)
+                needStableFrames = 7,         // <<< AJUSTE AQUI
+                needPresentFrames = 7,        // <<< AJUSTE AQUI
+
+                // 2) Mais sensibilidade de movimento:
+                stepDownsample = 12,          // <<< AJUSTE AQUI (menor = mais detalhe, mais CPU)
+                roiGrid = 16,                 // <<< AJUSTE AQUI (maior = mais sensível)
+
+                // 3) Movimento permitido (menor = mais exigente):
+                motionStableThr = 6.5,        // <<< AJUSTE AQUI (ROI)
+                motionStableThrFull = 5.8,    // <<< AJUSTE AQUI (FRAME TODO, pega dedo fora da ROI)
+
+                // 4) Nitidez mínima:
+                sharpThr = 11.0,              // <<< AJUSTE AQUI (pode subir se quiser ainda mais rigor)
+
+                // coverage guard (continua)
+                roiCoverageGuardEnabled = true
+            ),
             listener = object : CaptureEngine.Listener {
 
                 override fun onDebug(line1: String, line2: String) {
@@ -147,7 +184,6 @@ fun AutoShootCaptureScreen(
                         CaptureStep.BACK -> StoragePaths.newStagingImageFile(ctx, "back")
                     }
 
-                    // mantém travado até terminar validação
                     rt.analyzing.set(true)
 
                     takePhoto(
@@ -155,7 +191,6 @@ fun AutoShootCaptureScreen(
                         outFile = out,
                         executor = mainExec,
                         onOk = {
-                            // valida o JPG real (sem torch) e decide se aceita ou recaptura
                             validateExecutor.execute {
                                 val vr = PhotoValidator.validateJpeg(out, step)
                                 postUi {
@@ -165,7 +200,6 @@ fun AutoShootCaptureScreen(
                                     if (!vr.ok) {
                                         try { out.delete() } catch (_: Throwable) {}
 
-                                        // força “re-tentar” no mesmo step
                                         rt.stableFrames = 0
                                         rt.presentFrames = 0
                                         rt.lastSmall = null
@@ -180,7 +214,6 @@ fun AutoShootCaptureScreen(
                                         return@postUi
                                     }
 
-                                    // OK: segue fluxo normal
                                     if (step == CaptureStep.FRONT) {
                                         try { frontFile?.delete() } catch (_: Throwable) {}
                                         frontFile = out
@@ -251,9 +284,7 @@ fun AutoShootCaptureScreen(
                     ) { Text("Recalibrar") }
 
                     TextButton(
-                        onClick = {
-                            resetAll(toast = true)
-                        }
+                        onClick = { resetAll(toast = true) }
                     ) { Text("Cancelar carta") }
 
                     TextButton(
@@ -267,16 +298,19 @@ fun AutoShootCaptureScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            Box(modifier = Modifier.weight(1f)) {
+            BoxWithConstraints(modifier = Modifier.weight(1f)) {
                 AndroidView(modifier = Modifier.fillMaxSize(), factory = { previewView })
 
-                // >>> GUIA VISUAL (não funcional): retângulo verde onde a carta deve ficar
+                val leftDp = maxWidth * roi.left
+                val topDp = maxHeight * roi.top
+                val wDp = maxWidth * (roi.right - roi.left)
+                val hDp = maxHeight * (roi.bottom - roi.top)
+
                 Box(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .offset(y = (-40).dp)
-                        .fillMaxWidth(0.78f)
-                        .aspectRatio(63f / 88f) // proporção MTG
+                        .offset(x = leftDp, y = topDp)
+                        .width(wDp)
+                        .height(hDp)
                         .border(
                             width = 3.dp,
                             color = Color(0xFF00FF00),
