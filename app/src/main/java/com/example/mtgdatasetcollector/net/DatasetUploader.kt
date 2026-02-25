@@ -17,6 +17,18 @@ data class UploadResult(
     val error: String? = null
 )
 
+private fun gradeForBackend(raw: String): String {
+    val g = raw.trim().uppercase()
+    return when (g) {
+        "NM" -> "nm"
+        "SP" -> "sp"
+        "MP" -> "mp"
+        "HP" -> "hp"
+        "D", "DAMAGED", "DAMAGE" -> "damaged"   // pasta real no servidor
+        else -> g.lowercase()
+    }
+}
+
 class DatasetUploader(
     private val client: OkHttpClient
 ) {
@@ -27,10 +39,20 @@ class DatasetUploader(
         if (!front.exists()) return UploadResult(false, error = "front file missing: ${job.frontPath}")
         if (!back.exists()) return UploadResult(false, error = "back file missing: ${job.backPath}")
 
+        // Alguns campos do entity podem ser String? (nullable). Faz fallback pro grade final.
+        val finalGrade = gradeForBackend(job.grade)
+        val frontGrade = gradeForBackend(job.frontGrade ?: job.grade)
+        val backGrade  = gradeForBackend(job.backGrade  ?: job.grade)
+
         val metaJson = JSONObject()
             .put("device", AppConfig.DEVICE_NAME)
             .put("seq", job.id)
-            .put("grade", job.grade)
+            // legado (backend antigo pode ler só isso)
+            .put("grade", finalGrade)
+            // novos campos
+            .put("front_grade", frontGrade)
+            .put("back_grade", backGrade)
+            .put("final_grade", finalGrade)
             .put("ts", Instant.now().toString())
             .toString()
 

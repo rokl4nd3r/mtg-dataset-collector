@@ -24,6 +24,18 @@ object StoragePaths {
         }
     }
 
+    /**
+     * NOVO: cria arquivo a partir de um baseId (o mesmo para FRONT e BACK da carta).
+     */
+    fun newStagingImageFile(context: Context, baseId: String, side: String): File {
+        ensureDirs(context)
+        val name = IdGenerator.imageFileNameFromBase(baseId, side = side, ext = "jpg")
+        return File(imagesDir(context), name)
+    }
+
+    /**
+     * Compat: gera um baseId novo a cada chamada (evite se quiser par consistente).
+     */
     fun newStagingImageFile(context: Context, side: String): File {
         ensureDirs(context)
         val name = IdGenerator.nextImageFileName(context, side = side, ext = "jpg")

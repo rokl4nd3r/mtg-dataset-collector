@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 import com.example.mtgdatasetcollector.camera.*
 import com.example.mtgdatasetcollector.model.CaptureStep
 import com.example.mtgdatasetcollector.util.AppConfig
+import com.example.mtgdatasetcollector.util.IdGenerator
 import com.example.mtgdatasetcollector.util.StoragePaths
 import java.io.File
 import java.util.concurrent.Executors
@@ -32,10 +33,27 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
 
+private enum class UiMode { CAPTURING, LABEL_FRONT, LABEL_BACK, FINAL }
+
+private fun gradeLabel(v: String): String = if (v == "D") "DAMAGED" else v
+
+private fun worstGrade(a: String, b: String): String {
+    val order = mapOf("NM" to 0, "SP" to 1, "MP" to 2, "HP" to 3, "D" to 4)
+    val oa = order[a] ?: 99
+    val ob = order[b] ?: 99
+    return if (oa >= ob) a else b
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutoShootCaptureScreen(
-    onCapturedBoth: (frontPath: String, backPath: String) -> Unit,
+    onCompleted: (
+        frontPath: String,
+        backPath: String,
+        frontGrade: String,
+        backGrade: String,
+        finalGrade: String
+    ) -> Unit,
     onExit: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -59,6 +77,21 @@ fun AutoShootCaptureScreen(
     var frontFile by remember { mutableStateOf<File?>(null) }
     var backFile by remember { mutableStateOf<File?>(null) }
 
+    var frontGrade by remember { mutableStateOf<String?>(null) }
+    var backGrade by remember { mutableStateOf<String?>(null) }
+    var finalGrade by remember { mutableStateOf<String?>(null) }
+
+    // >>> baseId único por carta (FRONT/BACK compartilham)
+    var sessionBaseId by remember { mutableStateOf<String?>(null) }
+
+    var mode by remember { mutableStateOf(UiMode.CAPTURING) }
+    val modeRef = remember { AtomicReference(UiMode.CAPTURING) }
+
+    fun setMode(m: UiMode) {
+        modeRef.set(m)
+        mode = m
+    }
+
     val boundRef = remember { mutableStateOf<BoundCamera?>(null) }
     val cameraControlRef = remember { AtomicReference<CameraControl?>(null) }
 
@@ -69,7 +102,6 @@ fun AutoShootCaptureScreen(
     fun beepBack() = tone.startTone(ToneGenerator.TONE_PROP_ACK, 120)
     fun beepError() = tone.startTone(ToneGenerator.TONE_PROP_NACK, 120)
 
-    // ROI (overlay + engine)
     val roi = remember {
         CaptureEngine.RoiNorm(
             left = 0.12f,
@@ -115,9 +147,17 @@ fun AutoShootCaptureScreen(
     fun resetAll(toast: Boolean = false) {
         resetSessionFiles()
 
+        frontGrade = null
+        backGrade = null
+        finalGrade = null
+
+        // >>> reset do baseId da carta atual
+        sessionBaseId = null
+
         rt.step = CaptureStep.FRONT
         rt.stableFrames = 0
         rt.absentFrames = 0
+        rt.presentFrames = 0
         rt.lastSmall = null
         rt.captureInProgress.set(false)
         rt.analyzing.set(false)
@@ -127,6 +167,7 @@ fun AutoShootCaptureScreen(
         rt.calibratingBg.set(true)
 
         postUi {
+            setMode(UiMode.CAPTURING)
             stepUi = CaptureStep.FRONT
             hintUi = "Calibrando fundo... mantenha SEM carta por 1 segundo"
         }
@@ -134,30 +175,27 @@ fun AutoShootCaptureScreen(
         if (toast) Toast.makeText(ctx, "Carta cancelada.", Toast.LENGTH_SHORT).show()
     }
 
+    fun lockForLabeling() {
+        rt.captureInProgress.set(true)
+    }
+
+    fun unlockForCapturing() {
+        rt.captureInProgress.set(false)
+    }
+
     val engine = remember {
         CaptureEngine(
             rt = rt,
             cfg = CaptureEngine.Config(
                 roi = roi,
-
-                // ---------------- AJUSTES ANTI-DEDO ----------------
-                // 1) Mais tempo e mais frames estáveis antes de disparar:
-                needStableMs = 2000,          // <<< AJUSTE AQUI (mais alto = mais lento, mais seguro)
-                needStableFrames = 7,         // <<< AJUSTE AQUI
-                needPresentFrames = 7,        // <<< AJUSTE AQUI
-
-                // 2) Mais sensibilidade de movimento:
-                stepDownsample = 12,          // <<< AJUSTE AQUI (menor = mais detalhe, mais CPU)
-                roiGrid = 16,                 // <<< AJUSTE AQUI (maior = mais sensível)
-
-                // 3) Movimento permitido (menor = mais exigente):
-                motionStableThr = 6.5,        // <<< AJUSTE AQUI (ROI)
-                motionStableThrFull = 5.8,    // <<< AJUSTE AQUI (FRAME TODO, pega dedo fora da ROI)
-
-                // 4) Nitidez mínima:
-                sharpThr = 11.0,              // <<< AJUSTE AQUI (pode subir se quiser ainda mais rigor)
-
-                // coverage guard (continua)
+                needStableMs = 2000,
+                needStableFrames = 7,
+                needPresentFrames = 7,
+                stepDownsample = 12,
+                roiGrid = 16,
+                motionStableThr = 6.5,
+                motionStableThrFull = 5.8,
+                sharpThr = 11.0,
                 roiCoverageGuardEnabled = true
             ),
             listener = object : CaptureEngine.Listener {
@@ -168,6 +206,8 @@ fun AutoShootCaptureScreen(
                 }
 
                 override fun onHint(text: String) {
+                    val m = modeRef.get()
+                    if (m == UiMode.LABEL_FRONT || m == UiMode.LABEL_BACK || m == UiMode.FINAL) return
                     postUi { hintUi = text }
                 }
 
@@ -179,9 +219,12 @@ fun AutoShootCaptureScreen(
                     val bound = boundRef.value ?: return
                     val imageCapture = bound.imageCapture
 
+                    // >>> garante um baseId por carta e usa nos dois lados
+                    val baseId = sessionBaseId ?: IdGenerator.nextBaseId(ctx).also { sessionBaseId = it }
+
                     val out = when (step) {
-                        CaptureStep.FRONT -> StoragePaths.newStagingImageFile(ctx, "front")
-                        CaptureStep.BACK -> StoragePaths.newStagingImageFile(ctx, "back")
+                        CaptureStep.FRONT -> StoragePaths.newStagingImageFile(ctx, baseId, "front")
+                        CaptureStep.BACK -> StoragePaths.newStagingImageFile(ctx, baseId, "back")
                     }
 
                     rt.analyzing.set(true)
@@ -220,29 +263,25 @@ fun AutoShootCaptureScreen(
                                         beepFront()
 
                                         rt.step = CaptureStep.BACK
-                                        rt.awaitingSwap.set(true)
+                                        rt.awaitingSwap.set(false)
                                         rt.absentFrames = 0
                                         rt.presentFrames = 0
                                         rt.stableFrames = 0
                                         rt.lastSmall = null
 
                                         stepUi = CaptureStep.BACK
-                                        hintUi = "Remova a carta (voltar ao fundo) para liberar o VERSO"
+
+                                        lockForLabeling()
+                                        setMode(UiMode.LABEL_FRONT)
+                                        hintUi = "GRADE FRONT: selecione o estado da FRENTE (logo após a captura)."
                                     } else {
                                         try { backFile?.delete() } catch (_: Throwable) {}
                                         backFile = out
-
-                                        val f = frontFile
-                                        val b = backFile
-                                        if (f == null || b == null) {
-                                            beepError()
-                                            resetAll()
-                                            Toast.makeText(ctx, "Falhou: falta frente ou verso.", Toast.LENGTH_SHORT).show()
-                                            return@postUi
-                                        }
-
                                         beepBack()
-                                        onCapturedBoth(f.absolutePath, b.absolutePath)
+
+                                        lockForLabeling()
+                                        setMode(UiMode.LABEL_BACK)
+                                        hintUi = "GRADE BACK: selecione o estado do VERSO (logo após a captura)."
                                     }
                                 }
                             }
@@ -271,6 +310,62 @@ fun AutoShootCaptureScreen(
         )
     }
 
+    fun finalizeAndEmit() {
+        val f = frontFile
+        val b = backFile
+        val fg = frontGrade
+        val bg = backGrade
+        val fin = finalGrade
+
+        if (f == null || b == null || fg == null || bg == null || fin == null) {
+            beepError()
+            Toast.makeText(ctx, "Falhou: faltou frente/verso ou grades.", Toast.LENGTH_SHORT).show()
+            resetAll()
+            return
+        }
+
+        onCompleted(f.absolutePath, b.absolutePath, fg, bg, fin)
+    }
+
+    fun onPickFrontGrade(value: String) {
+        frontGrade = value
+
+        unlockForCapturing()
+        rt.awaitingSwap.set(false)
+
+        // >>> após GRADE FRONT, recalibra o fundo para capturar o VERSO
+        engine.requestRecalibrate(nextStepAfterCalib = CaptureStep.BACK)
+
+        setMode(UiMode.CAPTURING)
+        stepUi = CaptureStep.BACK
+        hintUi = "Calibrando fundo para o VERSO... mantenha SEM carta por 1 segundo"
+    }
+
+    fun onPickBackGrade(value: String) {
+        backGrade = value
+
+        val fg = frontGrade
+        if (fg == null) {
+            beepError()
+            resetAll(toast = true)
+            return
+        }
+
+        val fin = worstGrade(fg, value)
+        finalGrade = fin
+
+        lockForLabeling()
+        setMode(UiMode.FINAL)
+        hintUi = "FINAL = pior(FRONT, BACK). Toque no botão FINAL para salvar."
+    }
+
+    // helper: recalibrar mantém o passo atual (sem resetar o processo)
+    fun desiredStepForRecalib(): CaptureStep {
+        // se está no verso mas ainda não tem frente (estado esquisito), força FRONT
+        if (stepUi == CaptureStep.BACK && frontFile == null) return CaptureStep.FRONT
+        return stepUi
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -278,8 +373,29 @@ fun AutoShootCaptureScreen(
                 actions = {
                     TextButton(
                         onClick = {
-                            engine.requestRecalibrate()
-                            postUi { stepUi = CaptureStep.FRONT }
+                            // >>> FIX: Recalibrar = só fundo (mantém FRONT/BACK), não mexe em files/grades/baseId.
+                            if (mode == UiMode.LABEL_FRONT || mode == UiMode.LABEL_BACK || mode == UiMode.FINAL) {
+                                Toast.makeText(ctx, "Finalize a seleção antes de recalibrar.", Toast.LENGTH_SHORT).show()
+                                return@TextButton
+                            }
+
+                            val targetStep = desiredStepForRecalib()
+
+                            val ok = engine.requestRecalibrate(nextStepAfterCalib = targetStep)
+                            if (!ok) {
+                                Toast.makeText(ctx, "Recalibração ignorada (ocupado).", Toast.LENGTH_SHORT).show()
+                                return@TextButton
+                            }
+
+                            postUi {
+                                setMode(UiMode.CAPTURING)
+                                stepUi = targetStep
+                                hintUi = if (targetStep == CaptureStep.FRONT) {
+                                    "Calibrando fundo... mantenha SEM carta por 1 segundo"
+                                } else {
+                                    "Calibrando fundo para o VERSO... mantenha SEM carta por 1 segundo"
+                                }
+                            }
                         }
                     ) { Text("Recalibrar") }
 
@@ -298,6 +414,7 @@ fun AutoShootCaptureScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+
             BoxWithConstraints(modifier = Modifier.weight(1f)) {
                 AndroidView(modifier = Modifier.fillMaxSize(), factory = { previewView })
 
@@ -335,12 +452,79 @@ fun AutoShootCaptureScreen(
             }
 
             Column(Modifier.padding(16.dp)) {
-                Text(
-                    "Passo: ${if (stepUi == CaptureStep.FRONT) "FRENTE" else "VERSO"}",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(Modifier.height(6.dp))
-                Text("Dica: calibre o fundo sem carta. Depois, só troque frente/verso e rotule.")
+                when (mode) {
+                    UiMode.CAPTURING -> {
+                        Text(
+                            "Passo: ${if (stepUi == CaptureStep.FRONT) "FRENTE" else "VERSO"}",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text("Dica: calibre o fundo sem carta. Depois, só troque frente/verso e rotule.")
+                    }
+
+                    UiMode.LABEL_FRONT -> {
+                        Text("GRADE FRONT", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(10.dp))
+                        GradeButtons(onPick = { v -> onPickFrontGrade(v) })
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Escolha o estado da FRENTE. (Depois você captura o VERSO)",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    UiMode.LABEL_BACK -> {
+                        Text("GRADE BACK", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(10.dp))
+                        GradeButtons(onPick = { v -> onPickBackGrade(v) })
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Escolha o estado do VERSO. (Depois você salva o FINAL)",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    UiMode.FINAL -> {
+                        val fg = frontGrade ?: "-"
+                        val bg = backGrade ?: "-"
+                        val fin = finalGrade ?: "-"
+
+                        Text("RESULTADO FINAL", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(8.dp))
+
+                        Text(
+                            "FRONT: ${gradeLabel(fg)}   |   BACK: ${gradeLabel(bg)}",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        Spacer(Modifier.height(10.dp))
+
+                        Text(
+                            "FINAL: ${gradeLabel(fin)}",
+                            style = MaterialTheme.typography.displaySmall
+                        )
+
+                        Spacer(Modifier.height(6.dp))
+
+                        Text(
+                            "FINAL = pior(FRONT, BACK)",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+
+                        Spacer(Modifier.height(14.dp))
+
+                        Button(
+                            onClick = { finalizeAndEmit() },
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            contentPadding = PaddingValues(14.dp)
+                        ) {
+                            Text(
+                                "ESTADO FINAL: ${gradeLabel(fin)}",
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -360,8 +544,9 @@ fun AutoShootCaptureScreen(
 
             requestFocusNow()
 
-            engine.requestRecalibrate()
+            engine.requestRecalibrate(nextStepAfterCalib = CaptureStep.FRONT)
             postUi {
+                setMode(UiMode.CAPTURING)
                 stepUi = CaptureStep.FRONT
                 hintUi = "Calibrando fundo... mantenha SEM carta por 1 segundo"
             }
@@ -380,6 +565,41 @@ fun AutoShootCaptureScreen(
             runCatching { validateExecutor.shutdown() }
             runCatching { tone.release() }
             runCatching { engine.close() }
+        }
+    }
+}
+
+@Composable
+private fun GradeButtons(
+    onPick: (String) -> Unit
+) {
+    val items = listOf(
+        "NM" to "NM",
+        "SP" to "SP",
+        "MP" to "MP",
+        "HP" to "HP",
+        "D" to "DAMAGED"
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            items.take(3).forEach { (v, label) ->
+                Button(
+                    onClick = { onPick(v) },
+                    modifier = Modifier.weight(1f).height(54.dp),
+                    contentPadding = PaddingValues(12.dp)
+                ) { Text(label) }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            items.drop(3).forEach { (v, label) ->
+                Button(
+                    onClick = { onPick(v) },
+                    modifier = Modifier.weight(1f).height(54.dp),
+                    contentPadding = PaddingValues(12.dp)
+                ) { Text(label) }
+            }
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }

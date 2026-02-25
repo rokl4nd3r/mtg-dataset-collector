@@ -20,8 +20,12 @@ data class UploadJobEntity(
     // PENDING | UPLOADING | UPLOADED | FAILED
     val status: String = STATUS_PENDING,
 
-    // NM/SP/MP/HP/D
+    // FINAL grade (legado e compatível): NM/SP/MP/HP/D
     val grade: String,
+
+    // NOVO: grades por lado
+    val frontGrade: String? = null,
+    val backGrade: String? = null,
 
     val frontPath: String,
     val backPath: String,

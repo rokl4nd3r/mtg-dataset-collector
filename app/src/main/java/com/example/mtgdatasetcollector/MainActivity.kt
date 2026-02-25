@@ -10,17 +10,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,14 +44,8 @@ import kotlinx.coroutines.launch
 
 sealed class Screen {
     data object Capture : Screen()
-    data object Label : Screen()
-    data object NextCard : Screen() // tela de "Identificação OK"
+    data object NextCard : Screen()
 }
-
-data class CaptureSession(
-    val frontPath: String? = null,
-    val backPath: String? = null
-)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,6 +81,7 @@ private fun CollectorApp() {
                     PackageManager.PERMISSION_GRANTED
         )
     }
+
     val requestPermission = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted -> hasCameraPermission = granted }
@@ -100,7 +91,6 @@ private fun CollectorApp() {
     }
 
     var screen: Screen by remember { mutableStateOf<Screen>(Screen.Capture) }
-    var session by remember { mutableStateOf(CaptureSession()) }
 
     if (!hasCameraPermission) {
         PermissionGate(
@@ -112,48 +102,28 @@ private fun CollectorApp() {
 
     when (screen) {
         Screen.Capture -> AutoShootCaptureScreen(
-            onCapturedBoth = { front, back ->
-                session = CaptureSession(frontPath = front, backPath = back)
-                screen = Screen.Label
+            onCompleted = { frontPath, backPath, frontGrade, backGrade, finalGrade ->
+                // Vai pra tela de OK imediatamente.
+                screen = Screen.NextCard
+
+                // Enfileira em background.
+                scope.launch(Dispatchers.IO) {
+                    runCatching {
+                        repo.enqueue(
+                            frontGrade = frontGrade,
+                            backGrade = backGrade,
+                            finalGrade = finalGrade,
+                            frontPath = frontPath,
+                            backPath = backPath
+                        )
+                        WorkScheduler.kick(appCtx)
+                    }
+                }
             },
             onExit = {
-                session = CaptureSession()
                 screen = Screen.Capture
             }
         )
-
-        Screen.Label -> Scaffold(
-            topBar = { TopAppBar(title = { Text("Rotular") }) }
-        ) { padding ->
-            LabelScreen(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                session = session,
-                onCancel = {
-                    session = CaptureSession()
-                    screen = Screen.Capture
-                },
-                onLabeled = { grade ->
-                    val front = session.frontPath
-                    val back = session.backPath
-
-                    // Vai pra tela de "OK" imediatamente (evita cair na câmera e capturar o verso que ficou lá).
-                    // O enqueue roda em background.
-                    screen = Screen.NextCard
-                    session = CaptureSession()
-
-                    if (front != null && back != null) {
-                        scope.launch(Dispatchers.IO) {
-                            runCatching {
-                                repo.enqueue(grade, front, back)
-                                WorkScheduler.kick(appCtx)
-                            }
-                        }
-                    }
-                }
-            )
-        }
 
         Screen.NextCard -> Scaffold(
             topBar = { TopAppBar(title = { Text("Próxima carta") }) }
@@ -164,7 +134,6 @@ private fun CollectorApp() {
                     .padding(padding),
                 autoMs = 1000L,
                 onAutoDone = {
-                    // Volta pra câmera automaticamente
                     screen = Screen.Capture
                 }
             )
@@ -194,7 +163,6 @@ private fun NextCardScreen(
     autoMs: Long = 1000L,
     onAutoDone: () -> Unit
 ) {
-    // Auto-fecha e rearma
     LaunchedEffect(Unit) {
         delay(autoMs)
         onAutoDone()
@@ -214,63 +182,5 @@ private fun NextCardScreen(
             "Remova a carta do papel e coloque a próxima.\nRearmando automaticamente…",
             style = MaterialTheme.typography.bodyLarge
         )
-        // Sem botão OK
-    }
-}
-
-@Composable
-private fun LabelScreen(
-    modifier: Modifier = Modifier,
-    session: CaptureSession,
-    onCancel: () -> Unit,
-    onLabeled: (grade: String) -> Unit
-) {
-    var locked by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text("Resumo da captura", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(6.dp))
-                Text("front: ${session.frontPath ?: "-"}")
-                Text("back:  ${session.backPath ?: "-"}")
-            }
-        }
-
-        Text("Selecione o estado:", style = MaterialTheme.typography.bodyLarge)
-
-        // UI label -> valor real (mantém "D" internamente)
-        val grades = listOf(
-            "NM" to "NM",
-            "SP" to "SP",
-            "MP" to "MP",
-            "HP" to "HP",
-            "DAMAGED" to "D"
-        )
-
-        grades.forEach { (label, value) ->
-            Button(
-                onClick = {
-                    if (locked) return@Button
-                    locked = true
-                    onLabeled(value)
-                },
-                enabled = !locked,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(14.dp)
-            ) { Text(label) }
-
-            Spacer(Modifier.height(8.dp))
-        }
-
-        OutlinedButton(
-            onClick = { if (!locked) onCancel() },
-            enabled = !locked,
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(14.dp)
-        ) { Text("Cancelar") }
     }
 }

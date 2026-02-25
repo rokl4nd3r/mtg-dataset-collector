@@ -13,26 +13,35 @@ object IdGenerator {
     // Ex: 20260122_235959_123
     private val sdf = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US)
 
-    fun nextImageFileName(
-        context: Context,
-        side: String,          // "front" | "back"
-        ext: String = "jpg"
-    ): String {
+    /**
+     * Gera um ID BASE por carta:
+     * 20260224_210046_540_SM-A736B_000004
+     */
+    fun nextBaseId(context: Context): String {
         val ts = sdf.format(Date())
         val device = sanitizeDeviceTag(Build.MODEL ?: "device")
         val seq6 = nextSeq6(context)
-        val sideNorm = normalizeSide(side)
+        return "${ts}_${device}_${seq6}"
+    }
 
-        return "${ts}_${device}_${seq6}_${sideNorm}.${ext}"
+    fun imageFileNameFromBase(baseId: String, side: String, ext: String = "jpg"): String {
+        val sideNorm = normalizeSide(side)
+        return "${baseId}_${sideNorm}.${ext}"
+    }
+
+    /**
+     * Mantido por compatibilidade (gera baseId novo a cada chamada).
+     * Prefira: nextBaseId + imageFileNameFromBase.
+     */
+    fun nextImageFileName(context: Context, side: String, ext: String = "jpg"): String {
+        val base = nextBaseId(context)
+        return imageFileNameFromBase(base, side, ext)
     }
 
     private fun nextSeq6(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-        // atomicidade suficiente pro nosso caso (UI thread). Se virar multi-thread depois, trocamos pra DataStore/Room.
         val current = prefs.getInt(KEY_SEQ, 0)
         val next = (current + 1) % 1_000_000
-
         prefs.edit().putInt(KEY_SEQ, next).apply()
         return next.toString().padStart(6, '0')
     }
@@ -46,9 +55,13 @@ object IdGenerator {
         }
     }
 
+    /**
+     * Mantém formato tipo "SM-A736B".
+     * Permitidos: A-Z a-z 0-9 _ -
+     */
     private fun sanitizeDeviceTag(raw: String): String {
-        val s = raw.trim().lowercase(Locale.US)
-        val cleaned = s.replace(Regex("[^a-z0-9]+"), "_").trim('_')
-        return (if (cleaned.isBlank()) "device" else cleaned).take(20)
+        val s0 = raw.trim().replace(' ', '_')
+        val cleaned = s0.replace(Regex("[^A-Za-z0-9_\\-]+"), "_").trim('_')
+        return (if (cleaned.isBlank()) "device" else cleaned).take(32)
     }
 }

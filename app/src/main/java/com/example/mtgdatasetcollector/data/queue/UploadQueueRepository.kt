@@ -3,9 +3,23 @@ package com.example.mtgdatasetcollector.data.queue
 class UploadQueueRepository(
     private val dao: UploadJobDao
 ) {
+    // Compatível com o app atual: considera grade como FINAL e replica pros lados
     fun enqueue(grade: String, frontPath: String, backPath: String): Long {
+        return enqueue(
+            frontGrade = grade,
+            backGrade = grade,
+            finalGrade = grade,
+            frontPath = frontPath,
+            backPath = backPath
+        )
+    }
+
+    // NOVO: enqueue com grades por lado + final (final já vem calculado)
+    fun enqueue(frontGrade: String, backGrade: String, finalGrade: String, frontPath: String, backPath: String): Long {
         val job = UploadJobEntity(
-            grade = grade,
+            grade = finalGrade,
+            frontGrade = frontGrade,
+            backGrade = backGrade,
             frontPath = frontPath,
             backPath = backPath,
             status = UploadJobEntity.STATUS_PENDING

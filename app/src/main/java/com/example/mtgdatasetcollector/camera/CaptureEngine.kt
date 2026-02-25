@@ -39,6 +39,8 @@ class CaptureEngine(
         val hintEveryMs: Long = 450,
 
         // ---------------- PRESENÇA / ESTABILIDADE ----------------
+        // needPresentFrames: quantos frames "present=true" antes de começar a contar estabilidade
+        // needStableMs / needStableFrames: quanto tempo/frames precisa ficar estável pra disparar
         val needPresentFrames: Int = 5,
         val needStableMs: Long = 800,
         val needStableFrames: Int = 3,
@@ -47,7 +49,7 @@ class CaptureEngine(
         // motionStableThr = movimento dentro da ROI (grid)
         // motionStableThrFull = movimento no frame TODO (pega dedo fora da ROI)
         val motionStableThr: Double = 10.0,
-        val motionStableThrFull: Double = 10.0, // <<< NOVO: guard global (dedo em canto)
+        val motionStableThrFull: Double = 10.0, // <<< guard global (dedo em canto)
 
         // AJUSTE AQUI (2): nitidez mínima pra disparar
         val sharpThr: Double = 10.0,
@@ -57,6 +59,7 @@ class CaptureEngine(
         val captureCooldownMs: Long = 700,
 
         // ---------------- SWAP (REMOVER CARTA ENTRE FRENTE/VERSO) ----------------
+        // OBS: no fluxo novo, a UI NÃO usa awaitingSwap. Mantemos aqui só como "modo legado".
         val swapSettleMs: Long = 650,
         val swapCoverageMax: Double = 0.35,
         val swapMotionThr: Double = 16.0,    // (tolerante) usado no SWAP
@@ -65,10 +68,15 @@ class CaptureEngine(
         val needBgMatchMs: Long = 420,
 
         // ---------------- CALIBRAÇÃO DO FUNDO ----------------
+        // bgCalibNeedFrames: quantos frames de fundo pra média
+        // bgCalibMotionThr: trava se tiver movimento no frame todo (evita calibrar com mão)
         val bgCalibNeedFrames: Int = 30,
         val bgCalibMotionThr: Double = 7.5,
 
         // ---------------- PRESENÇA POR bgDiff (FRONT/BACK) ----------------
+        // AJUSTE AQUI (3): se o VERSO não "presenta", baixa os thrs do BACK.
+        // - presentThr: acima disso considera carta presente (com histerese)
+        // - absentThr: abaixo disso considera carta ausente
         val bgDiffPresentThrFront: Double = 20.0,
         val bgDiffAbsentThrFront: Double = 17.0,
 
@@ -93,15 +101,20 @@ class CaptureEngine(
         val roiGrid: Int = 12,
 
         // ---------------- PRESENÇA POR "PREENCHIMENTO" (COVERAGE) ----------------
+        // AJUSTE AQUI (4): coverage evita "present=true" com coisa pequena/ruído.
+        // - roiDiffThr: diferença de pixel (0-255) pra contar como "mudou"
+        // - roiMinCoverageEnter: % mínimo de pixels mudados pra considerar presença
         val roiCoverageGuardEnabled: Boolean = true,
         val roiDiffThr: Int = 8,
         val roiMinCoverageEnter: Double = 0.70,
 
         // ---------------- SWAP FAILSAFE: limiar adaptativo por ruído do fundo ----------------
+        // AJUSTE AQUI (5): swapBgK / swapBgMargin mexem na tolerância do "fundo bateu".
         val swapBgK: Double = 4.5,
         val swapBgMargin: Double = 0.8,
 
         // ---------------- BACKGROUND TRACKING (drift AE/AWB) ----------------
+        // AJUSTE AQUI (6): tracking faz EMA no fundo pra acompanhar drift de exposição/balanço.
         val bgTrackEnabled: Boolean = true,
         val bgTrackAlpha: Double = 0.06,
         val bgTrackThrMult: Double = 1.35,
@@ -149,10 +162,26 @@ class CaptureEngine(
     private var bgSwapThr: Double = 0.0
     private var bgTrackThr: Double = 0.0
 
+    // >>> qual passo deve ficar ativo após calibrar o fundo.
+    // No fluxo novo, usamos isso para "recalibrar pro VERSO" logo após o GRADE FRONT,
+    // e também pro botão Recalibrar NÃO resetar pro FRONT.
+    private var calibNextStepAfterBg: CaptureStep = CaptureStep.FRONT
+
     fun close() = ocrGate.close()
 
-    fun requestRecalibrate() {
-        if (rt.captureInProgress.get()) return
+    /**
+     * Recalibra APENAS o fundo, e ao terminar mantém o step definido por nextStepAfterCalib.
+     *
+     * Retorna false se estiver "ocupado" (capturando/validando),
+     * para a UI não assumir que recalibrou quando na verdade foi ignorado.
+     */
+    fun requestRecalibrate(nextStepAfterCalib: CaptureStep = CaptureStep.FRONT): Boolean {
+        // AJUSTE AQUI: regras de bloqueio (pra evitar recalibrar no meio de uma foto/validação)
+        if (rt.captureInProgress.get()) return false
+        if (rt.analyzing.get()) return false
+
+        calibNextStepAfterBg = nextStepAfterCalib
+
         rt.clearBg()
         rt.calibratingBg.set(true)
 
@@ -173,10 +202,19 @@ class CaptureEngine(
         rt.lastSmall = null
         bgCardPresent = false
 
-        // AJUSTE/RESET: evita “herdar” motionFull antigo
-        lastFullSmall = null // <<< IMPORTANTE
+        // fluxo novo: não usamos SWAP entre frente/verso
+        rt.awaitingSwap.set(false)
 
-        listener.onHint("Recalibrando fundo... mantenha SEM carta por 1 segundo")
+        // RESET: evita “herdar” motionFull antigo
+        lastFullSmall = null
+
+        val hint = if (calibNextStepAfterBg == CaptureStep.FRONT) {
+            "Recalibrando fundo... mantenha SEM carta por 1 segundo"
+        } else {
+            "Recalibrando fundo para o VERSO... mantenha SEM carta por 1 segundo"
+        }
+        listener.onHint(hint)
+        return true
     }
 
     fun analyze(image: ImageProxy) {
@@ -186,9 +224,10 @@ class CaptureEngine(
             val now = SystemClock.elapsedRealtime()
             val m = frameMetricsWide(image, step = cfg.stepDownsample)
 
-            // ---------------- NOVO: motion do frame TODO (pega dedo fora da ROI) ----------------
+            // ---------------- motion do frame TODO (pega dedo fora da ROI) ----------------
             val prevFull = lastFullSmall
-            val motionFull = if (prevFull == null || prevFull.size != m.small.size) 999.0 else motionScore(prevFull, m.small)
+            val motionFull =
+                if (prevFull == null || prevFull.size != m.small.size) 999.0 else motionScore(prevFull, m.small)
             lastFullSmall = m.small
 
             val (smallW, smallH) = deriveSmallDims(image, cfg.stepDownsample, m.small.size)
@@ -216,9 +255,10 @@ class CaptureEngine(
 
             val prev = rt.lastSmall
             rt.lastSmall = gridSmall
-            val motionRoi = if (prev == null || prev.size != gridSmall.size) 999.0 else motionScore(prev, gridSmall)
+            val motionRoi =
+                if (prev == null || prev.size != gridSmall.size) 999.0 else motionScore(prev, gridSmall)
 
-            // obstrução global (continua útil, mas dedo em canto pode passar)
+            // obstrução global
             if (isLikelyObstructed(m)) {
                 rt.presentFrames = 0
                 rt.stableFrames = 0
@@ -245,7 +285,7 @@ class CaptureEngine(
             if (!rt.bgReady || rt.calibratingBg.get()) {
                 if (!rt.calibratingBg.get()) rt.calibratingBg.set(true)
 
-                // AJUSTE: agora usa motionFull pra evitar calibrar com mão passando fora da ROI
+                // usa motionFull pra evitar calibrar com mão passando fora da ROI
                 val motionOkForBg = motionFull < cfg.bgCalibMotionThr
                 val sharpOkForCalibOcr = m.sharp > (cfg.sharpThr * 0.40)
 
@@ -289,8 +329,10 @@ class CaptureEngine(
                         rt.bgBuiltAtMs = now
                         rt.calibratingBg.set(false)
 
+                        // >>> fluxo novo: sempre sai da calibração pronto pro passo pedido
                         rt.awaitingSwap.set(false)
-                        rt.step = CaptureStep.FRONT
+                        rt.step = calibNextStepAfterBg
+
                         rt.presentFrames = 0
                         rt.stableFrames = 0
                         stableSinceMs = 0L
@@ -300,9 +342,12 @@ class CaptureEngine(
                         bgMatchSinceMs = 0L
 
                         // RESET: evita “herdar” motionFull antigo após calibrar
-                        lastFullSmall = null // <<< IMPORTANTE
+                        lastFullSmall = null
 
-                        listener.onHint("Fundo calibrado ✅ Aponte para a FRENTE")
+                        val hint =
+                            if (rt.step == CaptureStep.FRONT) "Fundo calibrado ✅ Aponte para a FRENTE"
+                            else "Fundo calibrado ✅ Aponte para o VERSO"
+                        listener.onHint(hint)
                     } else {
                         if (now - lastHintAtMs > cfg.hintEveryMs) {
                             lastHintAtMs = now
@@ -330,31 +375,36 @@ class CaptureEngine(
             }
 
             // ---------------- RUN ----------------
-            val bg = rt.bgSmall ?: run { requestRecalibrate(); return }
+            val bg = rt.bgSmall ?: run { requestRecalibrate(calibNextStepAfterBg); return }
             if (bg.size != gridSmall.size) {
-                requestRecalibrate()
+                requestRecalibrate(calibNextStepAfterBg)
                 return
             }
 
             val bgDiff = motionScore(bg, gridSmall)
-            val coverage = if (cfg.roiCoverageGuardEnabled) coverageScore(bg, gridSmall, cfg.roiDiffThr) else 1.0
+            val coverage =
+                if (cfg.roiCoverageGuardEnabled) coverageScore(bg, gridSmall, cfg.roiDiffThr) else 1.0
 
-            val presentThr = if (rt.step == CaptureStep.FRONT) cfg.bgDiffPresentThrFront else cfg.bgDiffPresentThrBack
-            val absentThr = if (rt.step == CaptureStep.FRONT) cfg.bgDiffAbsentThrFront else cfg.bgDiffAbsentThrBack
+            val presentThr =
+                if (rt.step == CaptureStep.FRONT) cfg.bgDiffPresentThrFront else cfg.bgDiffPresentThrBack
+            val absentThr =
+                if (rt.step == CaptureStep.FRONT) cfg.bgDiffAbsentThrFront else cfg.bgDiffAbsentThrBack
 
             val presentByCoverage = (!cfg.roiCoverageGuardEnabled) || (coverage >= cfg.roiMinCoverageEnter)
 
+            // histerese (enter/exit) para presença
             bgCardPresent = if (!bgCardPresent) {
                 (bgDiff >= presentThr) && presentByCoverage
             } else {
                 (bgDiff > absentThr) && presentByCoverage
             }
 
-            // AJUSTE PRINCIPAL: estabilidade exige ROI + FRAME TODO estáveis
+            // estabilidade exige ROI + FRAME TODO estáveis
             val motionOk = (motionRoi < cfg.motionStableThr) && (motionFull < cfg.motionStableThrFull)
             val sharpOk = m.sharp > cfg.sharpThr
 
-            // ---------------- SWAP robusto ----------------
+            // ---------------- SWAP (LEGADO) ----------------
+            // No fluxo novo, awaitingSwap nunca é setado. Mantido apenas como "fallback" se quiser reativar.
             if (rt.awaitingSwap.get()) {
                 val sinceCapMs = if (rt.lastCaptureAt == 0L) 999_999L else (now - rt.lastCaptureAt)
                 val settleOk = sinceCapMs >= cfg.swapSettleMs
@@ -362,15 +412,15 @@ class CaptureEngine(
                 val swapThr = if (bgSwapThr > 0.0) bgSwapThr else absentThr
                 val bgOk = bgDiff <= swapThr
 
-                // AJUSTE: SWAP usa motionFull também (evita liberar swap com mão mexendo fora da ROI)
                 val motionOkSwap = motionFull < cfg.swapMotionThr
-
                 val covOkSwap = (!cfg.roiCoverageGuardEnabled) || (coverage <= cfg.swapCoverageMax)
 
                 val bgMatch = settleOk && bgOk && motionOkSwap && covOkSwap
 
                 if (cfg.bgTrackEnabled && settleOk && motionOkSwap) {
-                    val trackOk = (bgDiff <= bgTrackThr) && ((!cfg.roiCoverageGuardEnabled) || (coverage <= cfg.bgTrackCoverageMax))
+                    val trackOk =
+                        (bgDiff <= bgTrackThr) &&
+                                ((!cfg.roiCoverageGuardEnabled) || (coverage <= cfg.bgTrackCoverageMax))
                     if (trackOk) updateBaselineEma(bg, gridSmall, cfg.bgTrackAlpha)
                 }
 
@@ -391,10 +441,7 @@ class CaptureEngine(
                     rt.stableFrames = 0
                     stableSinceMs = 0L
                     rt.lastSmall = null
-
-                    // RESET motionFull histórico pra não segurar swap/captura “à toa”
-                    lastFullSmall = null // <<< IMPORTANTE
-
+                    lastFullSmall = null
                     val hint = if (rt.step == CaptureStep.FRONT) "Aponte para a FRENTE" else "Agora o VERSO"
                     listener.onHint(hint)
                 }
@@ -424,6 +471,7 @@ class CaptureEngine(
                 return
             }
 
+            // se está presente e estável mas nitidez ainda não tá lá, pede foco
             if (bgCardPresent && motionOk && m.sharp < cfg.sharpThr * 0.92 && now - rt.lastFocusAt > cfg.focusCooldownMs) {
                 rt.lastFocusAt = now
                 listener.onRequestFocus()
